@@ -1,0 +1,52 @@
+# 美团天天神券 · GitHub Actions 版
+# 修改时注意不要破坏空格缩进，yaml 不支持 Tab 缩进，请使用同等长度空格缩进
+#
+# 与上游 aciton.yml 的差异（fork 后自用）：
+#   1. 增加 workflow_dispatch，方便在网页 / gh 里手动触发测试
+#   2. 定时补上北京时间 14 点（兑必中符）和 0-3 点（补签到），原来只有 11/17/21
+#   3. actions/checkout + setup-python 升级到 v4/v5（v2 的 node12 运行时已淘汰）
+#   4. 关掉 pushPlus / server 酱推送（没有 fill token；需要推送时把 yesornot/yesornot2 改回 "y"）
+#   5. 地区改成深圳；时区换算：GitHub cron 是 UTC，北京时间 = UTC+8
+name: mtshenquan-action
+
+on:
+  workflow_dispatch:
+  watch:
+    types: started
+  schedule:
+    # GitHub cron 一律按 UTC；下面两组已换算成北京时间（UTC = 北京 - 8h）
+    # 抢券 / 兑换必中符：北京 11、14、17、21 点
+    - cron: '0 3,6,9,13 * * *'
+    # 补签到领豆：北京 0、1、2、3 点（UTC 前一天 16-19 点）
+    - cron: '0 16,17,18,19 * * *'
+
+jobs:
+  mt-action:
+    name: my mt-action job
+    runs-on: ubuntu-latest
+    # 只拦"别人点 star 触发你的仓库"这种情况；定时任务和手动触发不受影响
+    if: github.event_name != 'watch' || github.event.repository.owner.id == github.event.sender.id
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: run meituanshenquan scripts
+        env:
+          token: ${{ secrets.MTTOKEN }}            # 必填：美团 token
+          serverkey: ${{ secrets.SERVERKEY }}      # 选填：server 酱 SendKey
+          pushPlusToken: ${{ secrets.PUSHPLUSTOKEN }} # 选填：pushPlus token
+          yesornot: "n"                            # "y" 开启 server 酱推送
+          yesornot2: "n"                           # "y" 开启 pushPlus 推送
+          webhook: "~"                             # 企业微信等 webhook，默认不用
+          "on": "1"                                # 1 = 有 10 元以上必中符时尝试抢 15+ 红包
+          "left": "0"                              # 抢不到保底时把这个值调大（如 10）
+          wm_latitude: "22543100"                  # 深圳
+          wm_longitude: "114057900"
+          propId: "5"                              # 5 = 15 元必中符
+          exchangeCoinNumber: "1800"
+          setexchangedou: "1800"
+        run: python mt-action-scripts.py
