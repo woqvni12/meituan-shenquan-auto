@@ -10,6 +10,7 @@ import os
 import sys
 import datetime
 import time
+import atexit
 
 #定义11点  用于开启server 酱推送
 global d_time0,d_time1,d_time2,n_time
@@ -752,6 +753,20 @@ def main():
     # getpropId_Coinnumber(token)
     a = __Autonomy__()
     sys.stdout = a
+    # 原版把日志缓存在 a._buff 里，只在推送时用，没开推送就什么都看不到；
+    # 而且 main 里有多条 sys.exit(0) 分支，必须在"任何"退出路径上都把日志打出来。
+    def _flush_buffer():
+        try:
+            sys.__stdout__.write(
+                "\n================ 运行日志开始 ================\n"
+                + a._buff
+                + "\n================ 运行日志结束 ================\n"
+            )
+            sys.__stdout__.flush()
+        except Exception:
+            pass
+
+    atexit.register(_flush_buffer)
     print("脚本启动时间:%s\n"%(n_time))  
     signForBeans()
     batchId = getbatchId()
@@ -874,11 +889,6 @@ def main():
     querymyProps()
     myRedBeanRecords()
     sys.stdout = temp
-    # 原版把运行日志缓存在 a._buff 里，只在推送时用；没开推送就什么都看不到。
-    # GitHub Actions 里把缓冲区打到标准输出，方便在 Actions 页面 / gh run view --log 里查。
-    print("================ 运行日志开始 ================")
-    print(a._buff)
-    print("================ 运行日志结束 ================")
     if(yesornot2 == "y"):
         pushPlus()
     else:
